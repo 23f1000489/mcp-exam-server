@@ -1,7 +1,0 @@
-
-services:
-  - type: web
-    name: exam-mcp-server
-    runtime: python
-    buildCommand: pip install -r requirements.txt
-    startCommand: python main.py

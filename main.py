@@ -10,7 +10,12 @@ EMAIL = "23f1000489@ds.study.iitm.ac.in"
 # Holds the challenge for the current HTTP request.
 request_challenge = ContextVar("request_challenge", default=None)
 
-mcp = FastMCP("Exam Challenge Server")
+mcp = FastMCP(
+    "Exam Challenge Server",
+    transport_security={
+        "enable_dns_rebinding_protection": False
+    }
+)
 
 
 class ChallengeHeaderMiddleware:

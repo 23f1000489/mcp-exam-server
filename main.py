@@ -1,5 +1,7 @@
 
 import hashlib
+import os
+import re
 from contextvars import ContextVar
 
 import uvicorn
@@ -7,7 +9,6 @@ from mcp.server.fastmcp import FastMCP
 
 EMAIL = "23f1000489@ds.study.iitm.ac.in"
 
-# Holds the challenge for the current HTTP request.
 request_challenge = ContextVar("request_challenge", default=None)
 
 mcp = FastMCP(
@@ -33,8 +34,9 @@ class ChallengeHeaderMiddleware:
             for key, value in scope.get("headers", [])
         }
 
-        challenge = headers.get("x-exam-challenge")
-        token = request_challenge.set(challenge)
+        token = request_challenge.set(
+            headers.get("x-exam-challenge")
+        )
 
         try:
             await self.app(scope, receive, send)
@@ -43,23 +45,26 @@ class ChallengeHeaderMiddleware:
 
 
 @mcp.tool()
-def solve_challenge() -> str:
-    """Solve the challenge supplied in the HTTP request header."""
+async def solve_challenge() -> str:
+    """Return the hash for the HTTP challenge header."""
     challenge = request_challenge.get()
 
-    if not challenge:
-        raise ValueError("Missing X-Exam-Challenge header")
+    if not challenge or not re.fullmatch(r"[0-9a-f]{32}", challenge):
+        raise ValueError("Invalid or missing X-Exam-Challenge header")
 
-    normalized_email = EMAIL.strip().lower()
-    message = f"{challenge}:{normalized_email}"
+    message = f"{challenge}:{EMAIL.strip().lower()}"
 
-    return hashlib.sha256(message.encode("utf-8")).hexdigest()[:16]
+    return hashlib.sha256(
+        message.encode("utf-8")
+    ).hexdigest()[:16]
 
 
-# The MCP SDK handles initialization, tool listing,
-# JSON-RPC requests, and tool-call responses.
 app = ChallengeHeaderMiddleware(mcp.streamable_http_app())
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(
+        app,
+        host="0.0.0.0",
+        port=int(os.environ.get("PORT", "8000"))
+    )
